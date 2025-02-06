@@ -52,7 +52,7 @@ delete: ## Deletes the CloudFormation stack
 
 go: build deploy ## Build and deploys the stack
 
-outputs: ## Fetch CloudFormation outputs and store them in outputs files
+outputs: ## Fetch CloudFormation outputs and store them in output file, and then in GHA env
 	@echo "Fetching CloudFormation outputs..."
 	@aws cloudformation describe-stacks \
 		--stack-name $(STACKNAME)-$(ENVIRONMENT) \
