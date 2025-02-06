@@ -30,7 +30,6 @@ jobs:
           aws-region: ${{env.AWS_REGION}}
 
       - name: Build and deploy CFN
-        # working-directory: ./infra
         env:
           ENVIRONMENT: dev # Override the default in the makefile here.
         run: |

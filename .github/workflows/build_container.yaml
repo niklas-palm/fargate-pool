@@ -30,7 +30,6 @@ jobs:
           aws-region: ${{env.AWS_REGION}}
 
       - name: Get cfn stack outputs and set in Github env
-        # working-directory: ./infra
         run: |
           make outputs
 
