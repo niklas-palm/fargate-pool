@@ -14,7 +14,6 @@ export STACKNAME ?= fargate-pool
 export REGION ?= eu-west-1
 export ENVIRONMENT ?= dev
 export PROJECT ?= fargate-pool
-export SERVICENAME ?= fargatepool
 
 # Mark targets that don't create files as .PHONY
 .PHONY: validate build deploy delete go outputs 

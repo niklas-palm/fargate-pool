@@ -1,0 +1,37 @@
+name: Deploy infra
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy_infra.yaml"
+      - "infra/**"
+
+env:
+  AWS_REGION: "eu-west-1"
+  OIDC_ROLE: arn:aws:iam::192114778981:role/AllowEcrFromGithubActions
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  BuildPipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v3
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{env.OIDC_ROLE}}
+          aws-region: ${{env.AWS_REGION}}
+
+      - name: Build and deploy CFN
+        working-directory: ./infra
+        env:
+          ENVIRONMENT: dev # Override the default in the makefile here.
+        run: |
+          make build.container
+          make deploy
