@@ -1,0 +1,52 @@
+name: Build Container
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build_container.yaml"
+      - "app/**"
+
+env:
+  AWS_REGION: "eu-west-1"
+  OIDC_ROLE: arn:aws:iam::675385716628:role/GithubActionsToAssume
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  BuildPipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v3
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{env.OIDC_ROLE}}
+          aws-region: ${{env.AWS_REGION}}
+
+      - name: Get Stack Outputs
+        working-directory: ./infra
+        run: |
+          make outputs
+          ./set-outputs.sh
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: "true"
+
+      - name: Build, tag, and push image to Amazon ECR
+        working-directory: ./app
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG $ECR_REGISTRY/${{ env.ECRRepositoryName }}:latest 
+          docker push $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.ECRRepositoryName }}:latest
