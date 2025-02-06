@@ -41,12 +41,13 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Available environment variables:"  # Debug: show available vars
-          env | grep ECR
-          REPO_NAME=${ECRRepositoryName}
-          echo "Repository name: $REPO_NAME"  # Debug: show repo name
+          # Debug
+          echo "Registry: $ECR_REGISTRY"
+          echo "Repository: ${{ env.ECRRepositoryName }}"
+          echo "URI: ${{ env.ECRRepositoryUri }}"
 
-          docker build -t $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG $ECR_REGISTRY/$REPO_NAME:latest 
-          docker push $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$REPO_NAME:latest
+          # Use ECRRepositoryUri instead since it contains the full path
+          docker build -t ${{ env.ECRRepositoryUri }}:$IMAGE_TAG .
+          docker tag ${{ env.ECRRepositoryUri }}:$IMAGE_TAG ${{ env.ECRRepositoryUri }}:latest 
+          docker push ${{ env.ECRRepositoryUri }}:$IMAGE_TAG
+          docker push ${{ env.ECRRepositoryUri }}:latest
