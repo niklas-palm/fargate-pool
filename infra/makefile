@@ -52,14 +52,6 @@ delete: ## Deletes the CloudFormation stack
 
 go: build deploy ## Build and deploys the stack
 
-# outputs: ## Fetch CloudFormation outputs and store them in .env file
-# 	@echo "Fetching CloudFormation outputs..."
-# 	@aws cloudformation describe-stacks \
-# 		--stack-name $(STACKNAME)-$(ENVIRONMENT) \
-# 		--region $(REGION) \
-# 		--query 'Stacks[0].Outputs[*].{Key:OutputKey,Value:OutputValue}' \
-# 		--output json > .stack-outputs.json
-
 outputs: ## Fetch CloudFormation outputs and store them in outputs files
 	@echo "Fetching CloudFormation outputs..."
 	@aws cloudformation describe-stacks \
