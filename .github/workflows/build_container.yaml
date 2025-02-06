@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/build_container.yaml"
       - "app/**"
+      - "makefile"
 
 env:
   AWS_REGION: "eu-west-1"
@@ -29,7 +30,7 @@ jobs:
           aws-region: ${{env.AWS_REGION}}
 
       - name: Get cfn stack outputs and set in Github env
-        working-directory: ./infra
+        # working-directory: ./infra
         run: |
           make outputs
 

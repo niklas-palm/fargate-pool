@@ -24,3 +24,4 @@ The pool sets up x number of "hot" tasks, pre-launched and ready for assingment.
 ### Considerations
 
 - With this approach, every task / container gets its own public IP. This is the simplest solution, not requiring any smart routing in the backend to route user requests to their respective container, but it comes with additional cost as AWS now charges per public IP.
+-
