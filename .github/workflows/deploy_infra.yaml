@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  BuildPipeline:
+  DeployPipeline:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
