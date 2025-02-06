@@ -32,13 +32,10 @@ jobs:
         working-directory: ./infra
         run: |
           make outputs
+          cat .stack-outputs.json  # Debug: show raw outputs
           ./set-outputs.sh
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: "true"
+          echo "Environment variables after setting:"  # Debug: show what was set
+          env | grep ECR
 
       - name: Build, tag, and push image to Amazon ECR
         working-directory: ./app
@@ -46,7 +43,12 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG $ECR_REGISTRY/${{ env.ECRRepositoryName }}:latest 
-          docker push $ECR_REGISTRY/${{ env.ECRRepositoryName }}:$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECRRepositoryName }}:latest
+          echo "Available environment variables:"  # Debug: show available vars
+          env | grep ECR
+          REPO_NAME=${ECRRepositoryName}
+          echo "Repository name: $REPO_NAME"  # Debug: show repo name
+
+          docker build -t $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG $ECR_REGISTRY/$REPO_NAME:latest 
+          docker push $ECR_REGISTRY/$REPO_NAME:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$REPO_NAME:latest

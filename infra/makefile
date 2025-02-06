@@ -71,3 +71,4 @@ outputs: ## Fetch CloudFormation outputs and store them in outputs files
 	@echo "Creating GitHub Environment Output..."
 	@jq -r '.[] | "echo \"\(.Key)=\(.Value)\" >> $GITHUB_ENV"' .stack-outputs.json > set-outputs.sh
 	@chmod +x set-outputs.sh
+	@cat set-outputs.sh  # Debug: show what's in the script
