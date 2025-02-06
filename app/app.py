@@ -1,22 +1,12 @@
-"use strict";
+from flask import Flask
 
-const express = require("express");
+app = Flask(__name__)
 
-// Constants
-const PORT = 8080;
-const HOST = "0.0.0.0";
-const PODNAME = process.env.HOSTNAME;
 
-// App
-const app = express();
-app.get("/", (req, res) => {
-  res.send(`Hello World! I'm running on task ${PODNAME}`);
-});
+@app.route("/")
+def hello():
+    return {"message": "Hello from container!"}
 
-app.get("/healthcheck", (req, res) => {
-  res.send(`${PODNAME}, reporting for duty`);
-});
 
-app.listen(PORT, HOST, () => {
-  console.log(`Running on http://${HOST}:${PORT}`);
-});
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80)

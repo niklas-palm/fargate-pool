@@ -28,25 +28,16 @@ jobs:
           role-to-assume: ${{env.OIDC_ROLE}}
           aws-region: ${{env.AWS_REGION}}
 
-      - name: Get Stack Outputs
+      - name: Get cfn stack outputs and set in Github env
         working-directory: ./infra
         run: |
           make outputs
-          echo "Environment variables after setting:"
-          env | grep ECR
 
       - name: Build, tag, and push image to Amazon ECR
         working-directory: ./app
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Debug
-          echo "Registry: $ECR_REGISTRY"
-          echo "Repository: ${{ env.ECRRepositoryName }}"
-          echo "URI: ${{ env.ECRRepositoryUri }}"
-
-          # Use ECRRepositoryUri instead since it contains the full path
           docker build -t ${{ env.ECRRepositoryUri }}:$IMAGE_TAG .
           docker tag ${{ env.ECRRepositoryUri }}:$IMAGE_TAG ${{ env.ECRRepositoryUri }}:latest 
           docker push ${{ env.ECRRepositoryUri }}:$IMAGE_TAG
