@@ -22,12 +22,20 @@ def drain_tasks():
 
     # Stop all ECS tasks
     for task in tasks:
-        task_id = task["TaskId"]
-        try:
-            ecs.stop_task(cluster=cluster_name, task=task_id)
-            print(f"Stopped ECS task: {task_id}")
-        except Exception as e:
-            print(f"Error stopping ECS task {task_id}: {str(e)}")
+        if "EcsTaskArn" in task:  # Only try to stop if we have the ECS task ARN
+            task_arn = task["EcsTaskArn"]
+            try:
+                # Extract just the task ID from the ARN if needed
+                # task_arn format: arn:aws:ecs:region:account:task/cluster-name/task-id
+                task_id = task_arn.split("/")[-1]
+                ecs.stop_task(cluster=cluster_name, task=task_id)
+                print(f"Stopped ECS task: {task_id}")
+            except Exception as e:
+                print(f"Error stopping ECS task {task_id}: {str(e)}")
+        else:
+            print(
+                f"No ECS task ARN found for task with SK: {task.get('SK', 'unknown')}"
+            )
 
     # Delete all items from DynamoDB
     with table.batch_writer() as batch:
