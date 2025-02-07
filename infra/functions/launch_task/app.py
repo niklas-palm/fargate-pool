@@ -24,9 +24,30 @@ SECURITY_GROUP_ID = os.environ["SECURITY_GROUP_ID"]
 table = dynamodb.Table(TABLE_NAME)
 
 
+def get_task_failure_reason(task_details):
+    """Extract failure reason from task details"""
+    if not task_details.get("tasks"):
+        return "No task details available"
+
+    task = task_details["tasks"][0]
+
+    # Check for stopped reason
+    if "stoppedReason" in task:
+        return task["stoppedReason"]
+
+    # Check for failures array
+    if "failures" in task:
+        return "; ".join(
+            failure.get("reason", "Unknown reason") for failure in task["failures"]
+        )
+
+    return "Unknown failure reason"
+
+
 def launch_task():
     timestamp = datetime.utcnow().isoformat()
     task_id = f"task_{timestamp}"
+    start_time = time.time()
 
     # Create initial entry in DynamoDB
     table.put_item(
@@ -40,8 +61,6 @@ def launch_task():
         }
     )
     logger.info(f"Created initial task entry for {task_id}")
-
-    start_time = time.time()
 
     try:
         # Launch the ECS task
@@ -71,20 +90,58 @@ def launch_task():
             },
         )
 
-        # Wait for task to be running and get IP
-        waiter = ecs.get_waiter("tasks_running")
-        waiter.wait(cluster=CLUSTER_NAME, tasks=[ecs_task_arn])
+        try:
+            # Wait for task to be running and get IP
+            waiter = ecs.get_waiter("tasks_running")
+
+            time.sleep(
+                0.25
+            )  # To avoid a race condition with the waiter. boto3 should do this....
+
+            waiter.wait(cluster=CLUSTER_NAME, tasks=[ecs_task_arn])
+
+            # Get task details after waiter
+            task_details = ecs.describe_tasks(
+                cluster=CLUSTER_NAME, tasks=[ecs_task_arn]
+            )
+
+            # Check if task is actually running
+            task_status = task_details["tasks"][0]["lastStatus"]
+            if task_status != "RUNNING":
+                failure_reason = get_task_failure_reason(task_details)
+                raise Exception(
+                    f"Task failed to reach RUNNING state. Status: {task_status}. Reason: {failure_reason}"
+                )
+
+            eni_id = task_details["tasks"][0]["attachments"][0]["details"][1]["value"]
+            ec2_response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
+            public_ip = ec2_response["NetworkInterfaces"][0]["Association"]["PublicIp"]
+
+        except Exception as waiter_error:
+            # Get the final task status to understand what went wrong
+            try:
+                task_details = ecs.describe_tasks(
+                    cluster=CLUSTER_NAME, tasks=[ecs_task_arn]
+                )
+                failure_reason = get_task_failure_reason(task_details)
+                logger.error(f"Task startup failed. Details: {failure_reason}")
+
+                # Add specific metric for different failure types
+                failure_type = (
+                    "WaiterTimeout"
+                    if "Waiter" in str(waiter_error)
+                    else "TaskStartupFailure"
+                )
+                metrics.add_metric(name=failure_type, unit=MetricUnit.Count, value=1)
+
+            except Exception as e:
+                logger.error(f"Failed to get task failure details: {str(e)}")
+                failure_reason = str(waiter_error)
+
+            raise Exception(f"Task failed to start: {failure_reason}")
 
         # Calculate and record startup duration
         startup_duration = time.time() - start_time
-
-        # Get ENI and public IP
-        task_details = ecs.describe_tasks(cluster=CLUSTER_NAME, tasks=[ecs_task_arn])
-        eni_id = task_details["tasks"][0]["attachments"][0]["details"][1]["value"]
-
-        ec2_response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
-        public_ip = ec2_response["NetworkInterfaces"][0]["Association"]["PublicIp"]
-
         logger.info(
             f"Task {task_id} is now running with IP {public_ip}. Startup took {startup_duration:.2f} seconds"
         )
