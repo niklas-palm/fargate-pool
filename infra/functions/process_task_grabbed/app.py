@@ -24,6 +24,9 @@ def lambda_handler(event: dict, context: LambdaContext):
                 and old_image.get("Status", {}).get("S") == "RUNNING"
             ):
                 logger.info("Task assigned, publishing event")
+                metrics.add_metric(
+                    name="TaskAllocatedToUse", unit=MetricUnit.Count, value=1
+                )
                 try:
                     response = events_client.put_events(
                         Entries=[
