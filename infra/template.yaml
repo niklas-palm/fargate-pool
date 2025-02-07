@@ -142,6 +142,115 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-Tasks
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: Status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: Status
+              KeyType: HASH
+            - AttributeName: SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  ProcessGrabbedTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./functions/process_task_grabbed/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 10
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: process-grabbed-tasks
+          POWERTOOLS_METRICS_NAMESPACE: fargate-pool
+          EVENT_BUS_NAME: !Ref TaskEventBus
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt TaskEventBus.Arn
+      Events:
+        StreamTrigger:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt TasksTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 1
+            MaximumBatchingWindowInSeconds: 1
+            MaximumRetryAttempts: 2
+            ParallelizationFactor: 5
+
+  LaunchTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./functions/launch_task/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 45
+      ReservedConcurrentExecutions: 15 # Max concurrency
+      Environment:
+        Variables:
+          CLUSTER_NAME: !Ref ECSCluster
+          TASK_DEFINITION: !Ref TaskDefinition
+          TABLE_NAME: !Ref TasksTable
+          SUBNET_ID1: !Ref PublicSubnet1
+          SUBNET_ID2: !Ref PublicSubnet2
+          SECURITY_GROUP_ID: !Ref ContainerSecGroup
+          POWERTOOLS_SERVICE_NAME: task-launcher
+          POWERTOOLS_METRICS_NAMESPACE: fargate-pool
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ecs:RunTask
+                - ecs:DescribeTasks
+                - ec2:DescribeNetworkInterfaces
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: !GetAtt TaskExecutionRole.Arn
+      Events:
+        TaskGrabbedEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref TaskEventBus
+            Pattern:
+              source:
+                - com.fargate-pool
+              detail-type:
+                - TaskGrabbed
+
+  TaskEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${AWS::StackName}-task-events
+
 Outputs:
   ClusterName:
     Description: The name of the ECS cluster
@@ -180,3 +289,11 @@ Outputs:
     Value: !Ref TaskDefinition
     Export:
       Name: !Sub ${AWS::StackName}-TaskDefinitionArn
+
+  TasksTableName:
+    Description: Name of the DynamoDB table for tasks
+    Value: !Ref TasksTable
+
+  TaskEventBusName:
+    Description: Name of eventbus
+    Value: !Ref TaskEventBus
