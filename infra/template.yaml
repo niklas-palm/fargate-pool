@@ -251,6 +251,63 @@ Resources:
     Properties:
       Name: !Sub ${AWS::StackName}-task-events
 
+  ## Simulate task grabbing
+  TaskGrabberFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./functions/sim_task_grabber/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+          POWERTOOLS_SERVICE_NAME: simulate-task-grabber
+          POWERTOOLS_METRICS_NAMESPACE: fargate-pool
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+      Events:
+        ScheduledGrab:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+            Name: TaskGrabberSchedule
+            Description: Grab tasks every minute
+            Enabled: true
+
+  ## Simulate task killing
+  TaskKillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./functions/sim_task_killer/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TasksTable
+          CLUSTER_NAME: !Ref ECSCluster
+          POWERTOOLS_SERVICE_NAME: task-cleanup
+          POWERTOOLS_METRICS_NAMESPACE: fargate-pool
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ecs:StopTask
+                - ecs:DescribeTasks
+              Resource: "*"
+      Events:
+        ScheduledCleanup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+            Name: TaskCleanupSchedule
+            Description: Delete assigned tasks every minute
+            Enabled: true
+
 Outputs:
   ClusterName:
     Description: The name of the ECS cluster
