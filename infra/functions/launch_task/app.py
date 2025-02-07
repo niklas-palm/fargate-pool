@@ -1,6 +1,7 @@
 import boto3
 import os
 import json
+import time
 from datetime import datetime
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
@@ -40,6 +41,8 @@ def launch_task():
     )
     logger.info(f"Created initial task entry for {task_id}")
 
+    start_time = time.time()
+
     try:
         # Launch the ECS task
         response = ecs.run_task(
@@ -72,12 +75,25 @@ def launch_task():
         waiter = ecs.get_waiter("tasks_running")
         waiter.wait(cluster=CLUSTER_NAME, tasks=[ecs_task_arn])
 
+        # Calculate and record startup duration
+        startup_duration = time.time() - start_time
+
         # Get ENI and public IP
         task_details = ecs.describe_tasks(cluster=CLUSTER_NAME, tasks=[ecs_task_arn])
         eni_id = task_details["tasks"][0]["attachments"][0]["details"][1]["value"]
 
         ec2_response = ec2.describe_network_interfaces(NetworkInterfaceIds=[eni_id])
         public_ip = ec2_response["NetworkInterfaces"][0]["Association"]["PublicIp"]
+
+        logger.info(
+            f"Task {task_id} is now running with IP {public_ip}. Startup took {startup_duration:.2f} seconds"
+        )
+
+        # Add metrics for startup time and success
+        metrics.add_metric(
+            name="TaskStartupDuration", unit=MetricUnit.Seconds, value=startup_duration
+        )
+        metrics.add_metric(name="TasksLaunched", unit=MetricUnit.Count, value=1)
 
         # Update task as running
         table.update_item(
@@ -91,11 +107,20 @@ def launch_task():
             },
         )
 
-        logger.info(f"Task {task_id} is now running with IP {public_ip}")
-        metrics.add_metric(name="TasksLaunched", unit=MetricUnit.Count, value=1)
-
     except Exception as e:
-        logger.exception(f"Error launching task {task_id}")
+        # Calculate and record failure duration
+        failure_duration = time.time() - start_time
+        logger.exception(
+            f"Error launching task {task_id} after {failure_duration:.2f} seconds"
+        )
+
+        metrics.add_metric(name="TaskLaunchErrors", unit=MetricUnit.Count, value=1)
+        metrics.add_metric(
+            name="TaskStartupFailureDuration",
+            unit=MetricUnit.Seconds,
+            value=failure_duration,
+        )
+
         table.update_item(
             Key={"PK": "TASK#POOL", "SK": f"TASK#{task_id}"},
             UpdateExpression="SET #status = :status, ErrorMessage = :error, UpdatedAt = :now",
@@ -106,7 +131,6 @@ def launch_task():
                 ":now": datetime.utcnow().isoformat(),
             },
         )
-        metrics.add_metric(name="TaskLaunchErrors", unit=MetricUnit.Count, value=1)
         raise
 
 
