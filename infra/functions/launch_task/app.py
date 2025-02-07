@@ -126,14 +126,6 @@ def launch_task():
                 failure_reason = get_task_failure_reason(task_details)
                 logger.error(f"Task startup failed. Details: {failure_reason}")
 
-                # Add specific metric for different failure types
-                failure_type = (
-                    "WaiterTimeout"
-                    if "Waiter" in str(waiter_error)
-                    else "TaskStartupFailure"
-                )
-                metrics.add_metric(name=failure_type, unit=MetricUnit.Count, value=1)
-
             except Exception as e:
                 logger.error(f"Failed to get task failure details: {str(e)}")
                 failure_reason = str(waiter_error)
