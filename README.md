@@ -29,6 +29,10 @@ The above sets up the entire infrastructure, to automatically add new tasks (the
 
 - `scripts/` contains helper methods for manipulating GHA environment variables, and scripts used by some make targets to add or drain tasks from the environment.
 
+#### Simulate traffic
+
+The infra template also sets up 2 lambda functions, triggered every minute, that simulates "grabbing" and "killing" tasks. There's also an ECS "monitoring service", which only queries the pool state and persists metrics in Cloudwatch Metrics. These are for demo purposes and can safely be deleted.
+
 ### Usage
 
 1. Change the role you've cofigured Github to have access to in the `.github/workflows` files in the top of both files. This role will be assumed by the Github worker to perform actions in your AWS environment (push a container or deploy cloudformation)
@@ -64,7 +68,7 @@ and then choose how many you want in the pool. The solution then keeps the numbe
 
 5. Use the UI to "grab tasks"
 
-Use the `Grab task` button to mark a container as used by a specific user. This triggers the process to create new tasks and add to the pool.
+The traffic simulation included in the sample will automatically grab tasks from the pool, and kill "assigned" tasks. You can also use the manual `Grab task` button to mark a container as used by a specific user. This triggers the process to create new tasks and add to the pool.
 
 6. Delete all running tasks
 
