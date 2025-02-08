@@ -4,7 +4,7 @@ Sample setting up a compute pool with ECS Fargate.
 
 The pool sets up x number of "warm" tasks, pre-launched and ready for assingment. When a task is "grabbed" and occupied by a user, an async process receives that event and starts a new task and adds it the warm pool, ensuring x warm tasks. One task = one single container.
 
-A simple UI can optionally be run locally to monitor number of available, launching and occupied tasks.
+A simple UI can optionally be run locally to monitor number of available, launching and assigning tasks to users.
 
 ### Prerequisites
 
