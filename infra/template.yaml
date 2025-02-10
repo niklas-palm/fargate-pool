@@ -92,6 +92,10 @@ Resources:
 
   ECSCluster:
     Type: AWS::ECS::Cluster
+    Properties:
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
 
   ECRRepository:
     Type: AWS::ECR::Repository
