@@ -67,7 +67,7 @@ def delete_single_task():
 @metrics.log_metrics(capture_cold_start_metric=True)
 def lambda_handler(event: dict, context: LambdaContext):
     # Generate random number of tasks to delete (5-15)
-    num_tasks = random.randint(5, 15)
+    num_tasks = random.randint(5, 14)
     logger.info(f"Attempting to delete {num_tasks} assigned tasks")
 
     # Try to delete the specified number of tasks
