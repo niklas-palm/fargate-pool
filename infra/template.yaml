@@ -213,7 +213,7 @@ Resources:
       CodeUri: ./functions/launch_task/
       Handler: app.lambda_handler
       Runtime: python3.11
-      Timeout: 75
+      Timeout: 120
       ReservedConcurrentExecutions: 15 # Max concurrency
       Environment:
         Variables:
